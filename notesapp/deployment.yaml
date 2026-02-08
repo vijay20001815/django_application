@@ -14,8 +14,10 @@ spec:
       labels:
         app: todo-app
     spec:
+      imagePullSecrets:
+      - name: dockerhub-secret
       containers:
       - name: todo-app
-        image: rashmidevops1/my-note-app
-        ports: 
+        image: rashmidevops1/my-note-app:microdegree
+        ports:
         - containerPort: 8000
