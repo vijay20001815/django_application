@@ -1,42 +1,79 @@
 pipeline {
-    agent any 
-    
-    stages{
-        stage("Clone Code"){
+    agent any
+
+    environment {
+        IMAGE_NAME = "my-note-app"
+    }
+
+    stages {
+
+        stage("Clone Repository") {
             steps {
-                echo "Cloning the code"
-                git url:"https://github.com/LondheShubham153/django-notes-app.git", branch: "main"
+                echo "Cloning GitHub repository"
+                git url: "https://github.com/LondheShubham153/django-notes-app.git",
+                    branch: "main"
             }
         }
-        stage("Build"){
+
+        stage("Build Docker Image") {
             steps {
-                echo "Building the image"
-                sh "docker build -t my-note-app ."
+                echo "Building Docker image"
+                sh """
+                    docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+                """
             }
         }
-        stage("Push to Docker Hub"){
+
+        stage("Push Image to Docker Hub") {
             steps {
-                echo "Pushing the image to docker hub"
-                withCredentials([usernamePassword(credentialsId:"dockerHub",passwordVariable:"dockerHubPass",usernameVariable:"dockerHubUser")]){
-                sh "docker tag my-note-app ${env.dockerHubUser}/my-note-app:latest"
-                sh "docker login -u ${env.dockerHubUser} -p ${env.dockerHubPass}"
-                sh "docker push ${env.dockerHubUser}/my-note-app:latest"
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: "dockerHub",
+                        usernameVariable: "DOCKER_USER",
+                        passwordVariable: "DOCKER_PASS"
+                    )
+                ]) {
+                    sh """
+                        docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${DOCKER_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
+                        docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${DOCKER_USER}/${IMAGE_NAME}:latest
+                        echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin
+                        docker push ${DOCKER_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
+                        docker push ${DOCKER_USER}/${IMAGE_NAME}:latest
+                    """
                 }
             }
         }
-        stage("Deploy to kubernetes") {
+
+        stage("Deploy to Kubernetes (MicroK8s)") {
             steps {
-                script {
-                    dir("notesapp") {
-                        withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'kubernetes', namespace: '', restrictKubeConfigAccess: false, serverUrl: '') {
-                        sh "kubectl delete --all pods"
-                        sh "kubectl apply -f deployment.yaml"
-                        sh "kubectl apply -f service.yaml"
-                        }
+                dir("notesapp") {
+                    withKubeConfig(credentialsId: "kubernetes") {
+                        sh """
+                            echo "Checking cluster access"
+                            kubectl get nodes
+
+                            echo "Deploying application"
+                            kubectl apply -f deployment.yaml
+                            kubectl apply -f service.yaml
+
+                            echo "Waiting for rollout"
+                            kubectl rollout status deployment/django-notes-app
+                        """
                     }
                 }
-                
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Deployment completed successfully"
+        }
+        failure {
+            echo "❌ Pipeline failed"
+        }
+        always {
+            sh "docker system prune -f || true"
         }
     }
 }
