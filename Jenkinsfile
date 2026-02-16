@@ -46,7 +46,7 @@ pipeline {
                         kubectl apply -f notesapp/deployment.yaml
                         kubectl apply -f notesapp/service.yaml
 
-                        kubectl rollout status deployment/django-notes-app
+                        kubectl rollout status deployment/todo-deployment
                     """
                 }
             }
