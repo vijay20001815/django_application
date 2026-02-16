@@ -7,13 +7,6 @@ pipeline {
 
     stages {
 
-        stage("Clone Repository") {
-            steps {
-                git url: "https://github.com/LondheShubham153/django-notes-app.git",
-                    branch: "main"
-            }
-        }
-
         stage("Build Docker Image") {
             steps {
                 echo "🐳 Building Docker image"
@@ -31,11 +24,11 @@ pipeline {
                         passwordVariable: "DOCKER_PASS"
                     )
                 ]) {
-                    sh """
+                    sh '''
                         docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${DOCKER_USER}/${IMAGE_NAME}:latest
                         echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin
                         docker push ${DOCKER_USER}/${IMAGE_NAME}:latest
-                    """
+                    '''
                 }
             }
         }
@@ -44,18 +37,16 @@ pipeline {
             steps {
                 echo "☸️ Deploying to Kubernetes"
                 withKubeConfig(credentialsId: "kubernetes") {
-                    dir("notesapp") {
-                        sh """
-                            echo "📂 Inside notesapp directory"
-                            pwd
-                            ls -l
+                    sh """
+                        echo "📂 Workspace root"
+                        pwd
+                        ls -l
 
-                            kubectl get nodes
-                            kubectl apply -f deployment.yaml
-                            kubectl apply -f service.yaml
-                            kubectl rollout status deployment/django-notes-app
-                        """
-                    }
+                        kubectl get nodes
+                        kubectl apply -f deployment.yaml
+                        kubectl apply -f service.yaml
+                        kubectl rollout status deployment/django-notes-app
+                    """
                 }
             }
         }
