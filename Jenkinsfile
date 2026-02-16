@@ -38,13 +38,14 @@ pipeline {
                 echo "☸️ Deploying to Kubernetes"
                 withKubeConfig(credentialsId: "kubernetes") {
                     sh """
-                        echo "📂 Workspace root"
-                        pwd
-                        ls -l
+                        echo "📂 Checking notesapp directory"
+                        ls -l notesapp
 
                         kubectl get nodes
-                        kubectl apply -f deployment.yaml
-                        kubectl apply -f service.yaml
+
+                        kubectl apply -f notesapp/deployment.yaml
+                        kubectl apply -f notesapp/service.yaml
+
                         kubectl rollout status deployment/django-notes-app
                     """
                 }
